@@ -252,82 +252,6 @@ public class ClothPBD : MonoBehaviour
     //    }
     //}
     /////////////////
-    void SolverBendConstraint(Vector3[] p)
-    {
-        foreach (var constraint in bendConsList)
-        {
-            int i1 = constraint.index1;
-            int i2 = constraint.index2;
-            int i3 = constraint.index3;
-            int i4 = constraint.index4;
-            Vector3[] x = { p[i3], p[i4], p[i1], p[i2] };
-
-            Vector3 e0 = x[1] - x[0];
-            Vector3 e1 = x[2] - x[0];
-            Vector3 e2 = x[3] - x[0];
-            Vector3 e3 = x[2] - x[1];
-            Vector3 e4 = x[3] - x[1];
-
-            float c01 = Cot(e0, e1);
-            float c02 = Cot(e0, e2);
-            float c03 = Cot(-e0, e3);
-            float c04 = Cot(-e0, e4);
-            float a0 = 0.5f * Vector3.Cross(e0, e1).magnitude;
-            float a1 = 0.5f * Vector3.Cross(e0, e2).magnitude;
-            float coef = -3f / (2f * (a0 + a1));
-            float[] k = { c03 + c04, c01 + c02, -c01 - c03, -c03 - c04 };
-            float[] k2 = { coef * k[0], coef * k[1], coef * k[2], coef * k[3] };
-
-            Matrix4x4 m = Matrix4x4.zero;
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < i; j++)
-                {
-                    m[i, j] = m[j, i] = k[i] * k2[j];
-                }
-                m[i, i] = k[i] * k2[i];
-            }
-
-            float[] invMass = { w[i3], w[i4], w[i1], w[i2] };
-            float energy = 0.0f;
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    energy += m[j, i] * Vector3.Dot(x[i], x[j]);
-                }
-            }
-            energy *= 0.5f;
-
-            Vector3[] grad = { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero };
-            for (int i = 0; i < 4; i++)
-            {
-                for (int j = 0; j < 4; j++)
-                {
-                    grad[j] += m[j, i] * x[i];
-                }
-            }
-
-            float sumNormGradC = 0;
-            for (int i = 0; i < 4; i++)
-            {
-                if (invMass[i] != 0)
-                    sumNormGradC += invMass[i] * grad[i].sqrMagnitude;
-            }
-
-            float eps = 0.000001f;
-            if (Mathf.Abs(sumNormGradC) > eps)
-            {
-                float s = energy / sumNormGradC;
-                p[i1] += -bendStiff * (s * invMass[2]) * grad[2];
-                p[i2] += -bendStiff * (s * invMass[3]) * grad[3];
-                p[i3] += -bendStiff * (s * invMass[0]) * grad[0];
-                p[i4] += -bendStiff * (s * invMass[1]) * grad[1];
-            }
-
-        }
-    }
-    //////////////////
     //void SolverBendConstraint(Vector3[] p)
     //{
     //    foreach (var constraint in bendConsList)
@@ -336,28 +260,141 @@ public class ClothPBD : MonoBehaviour
     //        int i2 = constraint.index2;
     //        int i3 = constraint.index3;
     //        int i4 = constraint.index4;
-    //        Vector3 n1 = Vector3.Cross(p[i2], p[i3]).normalized;
-    //        Vector3 n2 = Vector3.Cross(p[i2], p[i4]).normalized;
-    //        float d = Vector3.Dot(n1, n2);
-    //        Vector3 q3 = (Vector3.Cross(p[i2], n2) + Vector3.Cross(n1, p[i2]) * d) / Vector3.Cross(p[i2], p[i3]).magnitude;
-    //        Vector3 q4 = (Vector3.Cross(p[i2], n1) + Vector3.Cross(n2, p[i2]) * d) / Vector3.Cross(p[i2], p[i4]).magnitude;
-    //        Vector3 q2 = -(Vector3.Cross(p[i3], n2) + Vector3.Cross(n1, p[i3]) * d) / Vector3.Cross(p[i2], p[i3]).magnitude
-    //            - (Vector3.Cross(p[i4], n1) + Vector3.Cross(n2, p[i4]) * d) / Vector3.Cross(p[i2], p[i4]).magnitude;
-    //        Vector3 q1 = -q2 - q3 - q4;
+    //        Vector3[] x = { p[i3], p[i4], p[i1], p[i2] };
 
-    //        float sumwq = w[i1] * Vector3.SqrMagnitude(q1) + w[i2] * Vector3.SqrMagnitude(q2) + w[i3] * Vector3.SqrMagnitude(q3) + w[i4] * Vector3.SqrMagnitude(q4);
-    //        Vector3 deltaP1 = -w[i1] * Mathf.Sqrt(1 - d * d) * (Mathf.Rad2Deg * Mathf.Acos(d) - bendTheta) * q1 / sumwq;
-    //        Vector3 deltaP2 = -w[i2] * Mathf.Sqrt(1 - d * d) * (Mathf.Rad2Deg * Mathf.Acos(d) - bendTheta) * q2 / sumwq;
-    //        Vector3 deltaP3 = -w[i3] * Mathf.Sqrt(1 - d * d) * (Mathf.Rad2Deg * Mathf.Acos(d) - bendTheta) * q3 / sumwq;
-    //        Vector3 deltaP4 = -w[i4] * Mathf.Sqrt(1 - d * d) * (Mathf.Rad2Deg * Mathf.Acos(d) - bendTheta) * q4 / sumwq;
+    //        Vector3 e0 = x[1] - x[0];
+    //        Vector3 e1 = x[2] - x[0];
+    //        Vector3 e2 = x[3] - x[0];
+    //        Vector3 e3 = x[2] - x[1];
+    //        Vector3 e4 = x[3] - x[1];
 
-    //        p[i1] += deltaP1 * bendStiff;
-    //        p[i2] += deltaP2 * bendStiff;
-    //        p[i3] += deltaP3 * bendStiff;
-    //        p[i4] += deltaP4 * bendStiff;
+    //        float c01 = Cot(e0, e1);
+    //        float c02 = Cot(e0, e2);
+    //        float c03 = Cot(-e0, e3);
+    //        float c04 = Cot(-e0, e4);
+    //        float a0 = 0.5f * Vector3.Cross(e0, e1).magnitude;
+    //        float a1 = 0.5f * Vector3.Cross(e0, e2).magnitude;
+    //        float coef = -3f / (2f * (a0 + a1));
+    //        float[] k = { c03 + c04, c01 + c02, -c01 - c03, -c03 - c04 };
+    //        float[] k2 = { coef * k[0], coef * k[1], coef * k[2], coef * k[3] };
+
+    //        Matrix4x4 m = Matrix4x4.zero;
+    //        for (int i = 0; i < 4; i++)
+    //        {
+    //            for (int j = 0; j < i; j++)
+    //            {
+    //                m[i, j] = m[j, i] = k[i] * k2[j];
+    //            }
+    //            m[i, i] = k[i] * k2[i];
+    //        }
+
+    //        float[] invMass = { w[i3], w[i4], w[i1], w[i2] };
+    //        float energy = 0.0f;
+    //        for (int i = 0; i < 4; i++)
+    //        {
+    //            for (int j = 0; j < 4; j++)
+    //            {
+    //                energy += m[j, i] * Vector3.Dot(x[i], x[j]);
+    //            }
+    //        }
+    //        energy *= 0.5f;
+
+    //        Vector3[] grad = { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero };
+    //        for (int i = 0; i < 4; i++)
+    //        {
+    //            for (int j = 0; j < 4; j++)
+    //            {
+    //                grad[j] += m[j, i] * x[i];
+    //            }
+    //        }
+
+    //        float sumNormGradC = 0;
+    //        for (int i = 0; i < 4; i++)
+    //        {
+    //            if (invMass[i] != 0)
+    //                sumNormGradC += invMass[i] * grad[i].sqrMagnitude;
+    //        }
+
+    //        float eps = 0.000001f;
+    //        if (Mathf.Abs(sumNormGradC) > eps)
+    //        {
+    //            float s = energy / sumNormGradC;
+    //            p[i1] += -bendStiff * (s * invMass[2]) * grad[2];
+    //            p[i2] += -bendStiff * (s * invMass[3]) * grad[3];
+    //            p[i3] += -bendStiff * (s * invMass[0]) * grad[0];
+    //            p[i4] += -bendStiff * (s * invMass[1]) * grad[1];
+    //        }
 
     //    }
     //}
+    //////////////////
+    void SolverBendConstraint(Vector3[] p)
+    {
+        foreach (var constraint in bendConsList)
+        {
+            int i1 = constraint.index1;
+            int i2 = constraint.index2;
+            int i3 = constraint.index3;
+            int i4 = constraint.index4;
+            p[i2] -= p[i1];
+            p[i3] -= p[i1];
+            p[i4] -= p[i1];
+            p[i1] = Vector3.zero;
+            Vector3 n1 = Vector3.Cross(p[i2], p[i3]).normalized;
+            Vector3 n2 = Vector3.Cross(p[i2], p[i4]).normalized;
+
+            float d = Vector3.Dot(n1, n2);
+            if (d > 1) d = 1;
+            else if (d < -1) d = -1;
+            float C = Mathf.Rad2Deg * Mathf.Acos(d) - bendTheta;
+
+            Vector3 p2crossp3 = Vector3.Cross(p[i2], p[i3]);
+            Vector3 p2crossp4 = Vector3.Cross(p[i2], p[i4]);
+
+            Vector3 q2 = Vector3.zero;
+            Vector3 q2Left = Vector3.zero;
+            Vector3 q2Right = Vector3.zero;
+            Vector3 q3 = Vector3.zero;
+            Vector3 q4 = Vector3.zero;
+            if (p2crossp3.magnitude != 0)
+            {
+                q3= (Vector3.Cross(p[i2], n2) + Vector3.Cross(n1, p[i2]) * d) / p2crossp3.magnitude;
+                q2Left = -(Vector3.Cross(p[i3], n2) + Vector3.Cross(n1, p[i3]) * d) / p2crossp3.magnitude;
+            }
+            else
+            {
+                q3 = Vector3.zero;
+                q2Left = Vector3.zero;
+            }
+
+            if (p2crossp4.magnitude != 0)
+            {
+                q2Right =  -(Vector3.Cross(p[i4], n1) + Vector3.Cross(n2, p[i4]) * d) / p2crossp4.magnitude;
+                q4 = (Vector3.Cross(p[i2], n1) + Vector3.Cross(n2, p[i2]) * d) / p2crossp4.magnitude;
+            }
+            else
+            {
+                q4 = Vector3.zero;
+                q2Right = Vector3.zero;
+            }
+
+            q2 = q2Left + q2Right;
+            Vector3 q1 = -q2 - q3 - q4;
+
+            float sumwq = w[i1] * Vector3.SqrMagnitude(q1) + w[i2] * Vector3.SqrMagnitude(q2) + w[i3] * Vector3.SqrMagnitude(q3) + w[i4] * Vector3.SqrMagnitude(q4);
+            float numer = C * Mathf.Sqrt(1 - d * d);
+            Vector3 deltaP1 = -w[i1] * numer * q1 / sumwq;
+            Vector3 deltaP2 = -w[i2] * numer * q2 / sumwq;
+            Vector3 deltaP3 = -w[i3] * numer * q3 / sumwq;
+            Vector3 deltaP4 = -w[i4] * numer * q4 / sumwq;
+
+            p[i1] += deltaP1 * bendStiff;
+            p[i2] += deltaP2 * bendStiff;
+            p[i3] += deltaP3 * bendStiff;
+            p[i4] += deltaP4 * bendStiff;
+
+        }
+    }
     //void SolverTrianglePointDistanceConstraint(Vector3[] p)
     //{
     //    foreach (var constraint in bendConsList)
