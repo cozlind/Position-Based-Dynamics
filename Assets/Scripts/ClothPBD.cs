@@ -181,7 +181,7 @@ public class ClothPBD : MonoBehaviour
         for (int i = 0; i < solverIterations; i++)
         {
             SolverStretchConstraint(newPos);
-            if(bendConstraint) SolverBendConstraint(newPos);
+           // if(bendConstraint) SolverBendConstraint(newPos);
         }
         for (int i = 0; i < count; i++)
         {
